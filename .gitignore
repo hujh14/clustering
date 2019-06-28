@@ -1,0 +1,11 @@
+data/*
+checkpoint/*
+logs/*
+plots/*
+
+*.pyc
+*.bak
+*.log
+*.tar
+*.pth
+.DS_Store
