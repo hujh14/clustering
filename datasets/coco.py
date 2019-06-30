@@ -108,14 +108,25 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
     def prepare_input(self, img, ann):
         image = cv2.imread(os.path.join(self.root, img["file_name"]))[:,:,::-1]
+        bbox = ann["bbox"]
+
+        image = crop_bbox(image, bbox, margin=0.2)
+
+        if self.transform:
+            image = Image.fromarray(image)
+            image = self.transform(image)
+        return image
+
+    def prepare_input_with_mask(self, img, ann):
+        image = cv2.imread(os.path.join(self.root, img["file_name"]))[:,:,::-1]
         mask = mask_utils.decode(ann["segmentation"])  # [h, w, n]
         bbox = ann["bbox"]
 
-        image = crop_square(image, bbox)
-        mask = crop_square(mask, bbox)
-        mask *= 255
+        image = crop_bbox(image, bbox, margin=0.2)
+        mask = crop_bbox(mask, bbox, margin=0.2)
+        mask = mask * 255
 
-        if self.transform is not None:
+        if self.transform:
             image = Image.fromarray(image)
             mask = Image.fromarray(mask)
             # Hack to ensure transform is the same
@@ -125,27 +136,19 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
             random.seed(seed)
             mask = self.transform(mask)
             image = torch.cat([image, mask])
-        else:
-            image = vis_mask(image, mask)
-            image = Image.fromarray(image)
         return image
 
     def prepare_target(self, ann):
-        cat_label = self.json_category_id_to_contiguous_id[ann["category_id"]]
-        return cat_label
+        target = self.json_category_id_to_contiguous_id[ann["category_id"]]
+        return target
 
-    def get_targets(self):
+    def prepare_all_targets(self):
         targets = []
         for ann_id in self.ids:
             ann = self.coco.anns[ann_id]
             target = self.prepare_target(ann)
             targets.append(target)
         return targets
-
-    def get_label(self, target):
-        cat_id = self.contiguous_category_id_to_json_id[target]
-        cat = self.coco.cats[cat_id]
-        return cat["name"]
 
     def get_img_info(self, idx):
         ann_id = self.ids[idx]
@@ -164,39 +167,29 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         cat = self.coco.cats[ann["category_id"]]
         return cat
 
-def crop_square(image, bbox, margin=1.5, crop_size=256):
+def crop_bbox(image, bbox, margin=0.2):
     x, y, w, h = bbox
-    x_c = x + w/2
-    y_c = y + h/2
-    m = max(h,w) * margin
-    m = min(m, max(image.shape[0], image.shape[1]))
-    m = int(m / 2) * 2 # Needs to be even
-    x0 = int(min(max(0, x_c - m/2), image.shape[1]))
-    x1 = int(min(max(0, x_c + m/2), image.shape[1]))
-    y0 = int(min(max(0, y_c - m/2), image.shape[0]))
-    y1 = int(min(max(0, y_c + m/2), image.shape[0]))
+    # Add margin
+    space = margin * (w + h) / 2
+    x = round(x - space)
+    y = round(y - space)
+    w = round(w + space * 2)
+    h = round(h + space * 2)
+
+    x0 = min(max(0, x  ), image.shape[1])
+    x1 = min(max(0, x+w), image.shape[1])
+    y0 = min(max(0, y  ), image.shape[0])
+    y1 = min(max(0, y+h), image.shape[0])
     crop = image[y0:y1, x0:x1]
 
     # Pad with zeros
+    pad = np.zeros((h, w, 3), dtype='uint8')
     if image.ndim == 2:
-        pad = np.zeros((m, m), dtype='uint8')
-    else:
-        pad = np.zeros((m, m, 3), dtype='uint8')
-    pad_l = int(-min(x_c - m/2, 0))
-    pad_t = int(-min(y_c - m/2, 0))
+        pad = np.zeros((h, w), dtype='uint8')
+    pad_l = max(-x, 0)
+    pad_t = max(-y, 0)
     pad[pad_t:pad_t + crop.shape[0], pad_l:pad_l + crop.shape[1]] = crop
-    resized = cv2.resize(pad, dsize=(crop_size, crop_size))
-    return resized
-
-_GREEN = (18, 127, 15)
-def vis_mask(img, mask, alpha=0.4, color=_GREEN):
-    img = img.astype(np.float32)
-    idx = np.nonzero(mask)
-
-    img[idx[0], idx[1], :] *= 1.0 - alpha
-    img[idx[0], idx[1], :] += alpha * np.array(color)
-    img = img.astype(np.uint8)
-    return img
+    return pad
 
 if __name__ == '__main__':
     data_dir = "./data"
@@ -206,27 +199,30 @@ if __name__ == '__main__':
     dataset = COCODataset(
         root, val_ann_file, 
         transform=transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.5, 1.0)),
-            transforms.RandomHorizontalFlip(),
+            transforms.Resize((256, 256)),
+            # transforms.RandomResizedCrop(224, scale=(0.5,1.)),
+            # transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ]))
 
     print("Dataset size:", len(dataset))
-    print(dataset.get_targets())
 
     for inp, target, idx in dataset:
         print("Input shape:", inp.shape)
         print("Target:", target)
         print("Index:", idx)
         print("Img info", dataset.get_img_info(idx))
-
-        inp = inp.numpy()
-        image = np.array(inp[:3,:,:] * 255, dtype='uint8')
-        mask = np.array(inp[3,:,:] * 255, dtype='uint8')
+        
+        image = np.array(inp.numpy() * 255, dtype="uint8")
         image = np.transpose(image, (1,2,0))
 
-        image_vis = vis_mask(image, mask)
-        image_vis = Image.fromarray(image_vis)
-        
-        image_vis.show()
+        if image.shape[2] == 4:
+            # Visualize mask channel
+            image_c = np.array(image[:,:,:3], dtype="float")
+            iszero = np.nonzero(image[:,:,3] == 0)
+            image_c[iszero[0], iszero[1], :] *= 0.3
+            image = np.array(image_c, dtype="uint8")
+
+        image = Image.fromarray(image)
+        image.show()
         input("Press Enter to continue...")

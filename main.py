@@ -204,7 +204,8 @@ def main_worker(gpu, ngpus_per_node, args):
     train_dataset = datasets.coco.COCODataset(
         places_root, places_split00_ann_file,
         transform=transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.5,1.)),
+            transforms.Resize((256, 256)),
+            # transforms.RandomResizedCrop(224, scale=(0.5,1.)),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ]))
@@ -212,8 +213,8 @@ def main_worker(gpu, ngpus_per_node, args):
     val_dataset = datasets.coco.COCODataset(
         places_root, places_split80_ann_file,
         transform=transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.Resize((256, 256)),
+            # transforms.CenterCrop(224),
             transforms.ToTensor(),
         ]))
 
@@ -273,7 +274,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     model.train()
 
     end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+    for i, (input, target, index) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -317,7 +318,7 @@ def validate(val_loader, model, criterion, args):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, index) in enumerate(val_loader):
             if args.gpu is not None:
                 input = input.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
