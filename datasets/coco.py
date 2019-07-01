@@ -1,10 +1,8 @@
-
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import torch
 import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
-import cv2
 import os
 import random
 import numpy as np
@@ -107,7 +105,9 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         return len(self.ids)
 
     def prepare_input(self, img, ann):
-        image = cv2.imread(os.path.join(self.root, img["file_name"]))[:,:,::-1]
+        image_path = os.path.join(self.root, img["file_name"])
+        image = Image.open(image_path)
+        image = np.array(image)
         bbox = ann["bbox"]
 
         image = crop_bbox(image, bbox, margin=0.2)
@@ -118,7 +118,9 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         return image
 
     def prepare_input_with_mask(self, img, ann):
-        image = cv2.imread(os.path.join(self.root, img["file_name"]))[:,:,::-1]
+        image_path = os.path.join(self.root, img["file_name"])
+        image = Image.open(image_path)
+        image = np.array(image)
         mask = mask_utils.decode(ann["segmentation"])  # [h, w, n]
         bbox = ann["bbox"]
 

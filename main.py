@@ -170,8 +170,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
-    # criterion = nn.CrossEntropyLoss().cuda(args.gpu)
-    criterion = nn.MSELoss(size_average=False).cuda(args.gpu)
+    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -196,27 +195,28 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cudnn.benchmark = True
 
-    # Data loading code
+    # Data
+    print('==> Preparing data..')
+    transform_train = transforms.Compose([
+        transforms.Resize((256, 256)),
+        # transforms.RandomResizedCrop(224, scale=(0.5,1.)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+    ])
+
+    transform_test = transforms.Compose([
+        transforms.Resize((256, 256)),
+        # transforms.CenterCrop(224),
+        transforms.ToTensor(),
+    ])
+
     places_root = "/data/vision/torralba/ade20k-places/data"
     places_split00_ann_file = "/data/vision/torralba/ade20k-places/data/annotation/places_challenge/train_files/iteration0/predictions/splits/split00.json"
     places_split80_ann_file = "/data/vision/torralba/ade20k-places/data/annotation/places_challenge/train_files/iteration0/predictions/splits/split80.json"
-
-    train_dataset = datasets.coco.COCODataset(
-        places_root, places_split00_ann_file,
-        transform=transforms.Compose([
-            transforms.Resize((256, 256)),
-            # transforms.RandomResizedCrop(224, scale=(0.5,1.)),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-        ]))
-
-    val_dataset = datasets.coco.COCODataset(
-        places_root, places_split80_ann_file,
-        transform=transforms.Compose([
-            transforms.Resize((256, 256)),
-            # transforms.CenterCrop(224),
-            transforms.ToTensor(),
-        ]))
+    # train_dataset = datasets.coco.COCODataset(places_root, places_split00_ann_file, transform=transform_train)
+    # val_dataset = datasets.coco.COCODataset(places_root, places_split80_ann_file, transform=transform_test)
+    train_dataset = datasets.CIFAR10Instance(root='./data', train=True, download=True, transform=transform_train)
+    val_dataset = datasets.CIFAR10Instance(root='./data', train=False, download=True, transform=transform_test)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
