@@ -213,10 +213,11 @@ def main_worker(gpu, ngpus_per_node, args):
     places_root = "/data/vision/torralba/ade20k-places/data"
     places_split00_ann_file = "/data/vision/torralba/ade20k-places/data/annotation/places_challenge/train_files/iteration0/predictions/splits/split00.json"
     places_split80_ann_file = "/data/vision/torralba/ade20k-places/data/annotation/places_challenge/train_files/iteration0/predictions/splits/split80.json"
-    # train_dataset = datasets.coco.COCODataset(places_root, places_split00_ann_file, transform=transform_train)
-    # val_dataset = datasets.coco.COCODataset(places_root, places_split80_ann_file, transform=transform_test)
-    train_dataset = datasets.CIFAR10Instance(root='./data', train=True, download=True, transform=transform_train)
-    val_dataset = datasets.CIFAR10Instance(root='./data', train=False, download=True, transform=transform_test)
+    train_dataset = datasets.coco.COCODataset(places_root, places_split00_ann_file, transform=transform_train)
+    val_dataset = datasets.coco.COCODataset(places_root, places_split80_ann_file, transform=transform_test)
+    # CIFAR
+    # train_dataset = datasets.CIFAR10Instance(root='./data', train=True, download=True, transform=transform_train)
+    # val_dataset = datasets.CIFAR10Instance(root='./data', train=False, download=True, transform=transform_test)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -408,8 +409,6 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
-    print(output)
-    print(target)
     with torch.no_grad():
         maxk = max(topk)
         batch_size = target.size(0)

@@ -106,12 +106,11 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
     def prepare_input(self, img, ann):
         image_path = os.path.join(self.root, img["file_name"])
-        image = Image.open(image_path)
+        image = Image.open(image_path).convert('RGB')
         image = np.array(image)
         bbox = ann["bbox"]
-
         image = crop_bbox(image, bbox, margin=0.2)
-
+       
         if self.transform:
             image = Image.fromarray(image)
             image = self.transform(image)
@@ -119,7 +118,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
     def prepare_input_with_mask(self, img, ann):
         image_path = os.path.join(self.root, img["file_name"])
-        image = Image.open(image_path)
+        image = Image.open(image_path).convert('RGB')
         image = np.array(image)
         mask = mask_utils.decode(ann["segmentation"])  # [h, w, n]
         bbox = ann["bbox"]
