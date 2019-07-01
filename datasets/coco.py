@@ -109,6 +109,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         image = Image.open(image_path).convert('RGB')
         image = np.array(image)
         bbox = ann["bbox"]
+        
         image = crop_bbox(image, bbox, margin=0.2)
        
         if self.transform:
