@@ -75,7 +75,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
-parser.add_argument('--out_dir', default='output', type=str,
+parser.add_argument('--output_dir', default='output', type=str,
                     help='output directory')
 
 best_acc1 = 0
@@ -284,7 +284,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
-        output, embedding = model(input)
+        output = model(input)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -325,8 +325,7 @@ def validate(val_loader, model, criterion, args):
             target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
-            output, embedding = model(input)
-            print(embedding)
+            output = model(input)
             loss = criterion(output, target)
 
             # measure accuracy and record loss

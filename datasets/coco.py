@@ -39,14 +39,16 @@ def has_valid_annotation(anno):
 
 
 class COCODataset(torchvision.datasets.coco.CocoDetection):
-    def __init__(
-        self, root, ann_file, cat_name=None, transform=None
-    ):
+    """`MS Coco Detection <http://mscoco.org/dataset/#detections-challenge2016>`_ Dataset.
+    Args:
+        root (string): Root directory where images are downloaded to.
+        annFile (string): Path to json annotation file.
+        transforms (callable, optional): A function/transform that takes input sample and its target as entry
+            and returns a transformed version.
+    """
+    def __init__(self, root, ann_file, transform=None):
         super(COCODataset, self).__init__(root, ann_file)
-        # sort indices for reproducible results
         self.ids = list(sorted(self.coco.anns.keys()))
-        self.transform = transform
-
         self.json_category_id_to_contiguous_id = {
             v: i + 1 for i, v in enumerate(self.coco.getCatIds())
         }
@@ -54,43 +56,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
             v: k for k, v in self.json_category_id_to_contiguous_id.items()
         }
 
-        self.area_threshold = 1000
-        self.score_threshold = 0.5
-        self.filter_ids()
-        if cat_name:
-            self.filter_category(cat_name)
-
-    def filter_ids(self):
-        # filter bad annotations
-        ids = []
-        for ann_id in self.ids:
-            ann = self.coco.anns[ann_id]
-            if not has_valid_annotation([ann]):
-                continue
-            if ann["area"] < self.area_threshold:
-                continue
-            if ann["score"] < self.score_threshold:
-                continue
-            ids.append(ann_id)
-        self.ids = ids
-
-        # correct image path
-        for img_id in self.coco.imgs:
-            img = self.coco.imgs[img_id]
-            if "ade_challenge/images/" in img["file_name"]:
-                img["file_name"] = img["file_name"].replace("ade_challenge/images/", "")
-
-    def filter_category(self, cat_name):
-        ids = []
-        cat_name_to_cat_id = {
-            cat["name"]: cat["id"] for cat in self.coco.dataset["categories"]
-        }
-        cat_id = cat_name_to_cat_id[cat_name]
-        for ann_id in self.ids:
-            ann = self.coco.anns[ann_id]
-            if ann["category_id"] == cat_id:
-                ids.append(ann_id)
-        self.ids = ids
+        self.transform = transform
 
     def __getitem__(self, idx):
         ann_id = self.ids[idx]
@@ -107,67 +73,28 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
     def prepare_input(self, img, ann):
         image_path = os.path.join(self.root, img["file_name"])
         image = Image.open(image_path).convert('RGB')
-        image = np.array(image)
-        bbox = ann["bbox"]
-        
-        image = crop_bbox(image, bbox, margin=0.2)
-       
-        if self.transform:
-            image = Image.fromarray(image)
-            image = self.transform(image)
-        return image
-
-    def prepare_input_with_mask(self, img, ann):
-        image_path = os.path.join(self.root, img["file_name"])
-        image = Image.open(image_path).convert('RGB')
-        image = np.array(image)
         mask = mask_utils.decode(ann["segmentation"])  # [h, w, n]
         bbox = ann["bbox"]
 
-        image = crop_bbox(image, bbox, margin=0.2)
-        mask = crop_bbox(mask, bbox, margin=0.2)
+        image = np.array(image)
         mask = mask * 255
+        image = crop_bbox(image, bbox, margin=0.2)
+        image = Image.fromarray(image)
 
         if self.transform:
-            image = Image.fromarray(image)
-            mask = Image.fromarray(mask)
-            # Hack to ensure transform is the same
-            seed = random.randint(0,2**32)
-            random.seed(seed)
             image = self.transform(image)
-            random.seed(seed)
-            mask = self.transform(mask)
-            image = torch.cat([image, mask])
         return image
 
     def prepare_target(self, ann):
         target = self.json_category_id_to_contiguous_id[ann["category_id"]]
         return target
 
-    def prepare_all_targets(self):
-        targets = []
-        for ann_id in self.ids:
-            ann = self.coco.anns[ann_id]
-            target = self.prepare_target(ann)
-            targets.append(target)
-        return targets
-
-    def get_img_info(self, idx):
+    def get_info(self, idx):
         ann_id = self.ids[idx]
         ann = self.coco.anns[ann_id]
         img = self.coco.imgs[ann["image_id"]]
-        return img
-
-    def get_ann_info(self, idx):
-        ann_id = self.ids[idx]
-        ann = self.coco.anns[ann_id]
-        return ann
-
-    def get_cat_info(self, idx):
-        ann_id = self.ids[idx]
-        ann = self.coco.anns[ann_id]
         cat = self.coco.cats[ann["category_id"]]
-        return cat
+        return img, ann, cat
 
 def crop_bbox(image, bbox, margin=0.2):
     x, y, w, h = bbox

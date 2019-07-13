@@ -5,6 +5,7 @@ import shutil
 import time
 import warnings
 import sys
+sys.path.insert(0, '.')
 
 import torch
 import torch.nn as nn
@@ -75,7 +76,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
-parser.add_argument('--out_dir', default='output', type=str,
+parser.add_argument('--output_dir', default='output', type=str,
                     help='output directory')
 
 best_acc1 = 0
@@ -151,7 +152,7 @@ def main_worker(gpu, ngpus_per_node, args):
             # DistributedDataParallel, we need to divide the batch size
             # ourselves based on the total number of GPUs we have
             args.batch_size = int(args.batch_size / ngpus_per_node)
-            args.workers = int(args.workers / ngpus_per_node)
+            args.workers = int((args.workers + ngpus_per_node - 1) / ngpus_per_node)
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         else:
             model.cuda()
@@ -195,29 +196,32 @@ def main_worker(gpu, ngpus_per_node, args):
 
     cudnn.benchmark = True
 
-    # Data
-    print('==> Preparing data..')
-    transform_train = transforms.Compose([
+    # Data loading code
+    # traindir = os.path.join(args.data, 'train')
+    # valdir = os.path.join(args.data, 'val')
+    train_img_dir = "coco/train2017"
+    train_ann_file = "coco/annotations/instances_train2017.json"
+    val_img_dir = "coco/val2017"
+    val_ann_file = "coco/annotations/instances_val2017.json"
+
+    train_img_dir = os.path.join(args.data, train_img_dir)
+    train_ann_file = os.path.join(args.data, train_ann_file)
+    val_img_dir = os.path.join(args.data, val_img_dir)
+    val_ann_file = os.path.join(args.data, val_ann_file)
+
+    train_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
-        # transforms.RandomResizedCrop(224, scale=(0.5,1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
-
-    transform_test = transforms.Compose([
+    val_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
-        # transforms.CenterCrop(224),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
     ])
 
-    places_root = "/data/vision/torralba/ade20k-places/data"
-    places_split00_ann_file = "/data/vision/torralba/ade20k-places/data/annotation/places_challenge/train_files/iteration0/predictions/splits/split00.json"
-    places_split80_ann_file = "/data/vision/torralba/ade20k-places/data/annotation/places_challenge/train_files/iteration0/predictions/splits/split80.json"
-    train_dataset = datasets.coco.COCODataset(places_root, places_split00_ann_file, transform=transform_train)
-    val_dataset = datasets.coco.COCODataset(places_root, places_split80_ann_file, transform=transform_test)
-    # CIFAR
-    # train_dataset = datasets.CIFAR10Instance(root='./data', train=True, download=True, transform=transform_train)
-    # val_dataset = datasets.CIFAR10Instance(root='./data', train=False, download=True, transform=transform_test)
+    train_dataset = datasets.coco.COCODataset(train_img_dir, train_ann_file, transform=train_transforms)
+    val_dataset = datasets.coco.COCODataset(val_img_dir, val_ann_file, transform=val_transforms)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -268,30 +272,32 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
-    progress = ProgressMeter(len(train_loader), batch_time, data_time, losses, top1,
-                             top5, prefix="Epoch: [{}]".format(epoch))
+    progress = ProgressMeter(
+        len(train_loader),
+        [batch_time, data_time, losses, top1, top5],
+        prefix="Epoch: [{}]".format(epoch))
 
     # switch to train mode
     model.train()
 
     end = time.time()
-    for i, (input, target, index) in enumerate(train_loader):
+    for i, (images, target, index) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
 
         if args.gpu is not None:
-            input = input.cuda(args.gpu, non_blocking=True)
+            images = images.cuda(args.gpu, non_blocking=True)
         target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
-        output = model(input)
+        output, embedding = model(images)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        losses.update(loss.item(), input.size(0))
-        top1.update(acc1[0], input.size(0))
-        top5.update(acc5[0], input.size(0))
+        losses.update(loss.item(), images.size(0))
+        top1.update(acc1[0], images.size(0))
+        top5.update(acc5[0], images.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -303,7 +309,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         end = time.time()
 
         if i % args.print_freq == 0:
-            progress.print(i)
+            progress.display(i)
 
 
 def validate(val_loader, model, criterion, args):
@@ -311,35 +317,41 @@ def validate(val_loader, model, criterion, args):
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
-    progress = ProgressMeter(len(val_loader), batch_time, losses, top1, top5,
-                             prefix='Test: ')
+    progress = ProgressMeter(
+        len(val_loader),
+        [batch_time, losses, top1, top5],
+        prefix='Test: ')
 
     # switch to evaluate mode
     model.eval()
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target, index) in enumerate(val_loader):
+        for i, (images, target, index) in enumerate(val_loader):
             if args.gpu is not None:
-                input = input.cuda(args.gpu, non_blocking=True)
+                images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
-            output = model(input)
+            output, embedding = model(images)
             loss = criterion(output, target)
+
+            # save embedding
+            print(embedding.shape)
+            print(index.shape)
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
-            losses.update(loss.item(), input.size(0))
-            top1.update(acc1[0], input.size(0))
-            top5.update(acc5[0], input.size(0))
+            losses.update(loss.item(), images.size(0))
+            top1.update(acc1[0], images.size(0))
+            top5.update(acc5[0], images.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
 
             if i % args.print_freq == 0:
-                progress.print(i)
+                progress.display(i)
 
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
@@ -384,12 +396,12 @@ class AverageMeter(object):
 
 
 class ProgressMeter(object):
-    def __init__(self, num_batches, *meters, prefix=""):
+    def __init__(self, num_batches, meters, prefix=""):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
         self.meters = meters
         self.prefix = prefix
 
-    def print(self, batch):
+    def display(self, batch):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
