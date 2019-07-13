@@ -66,7 +66,7 @@ def main():
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
-    data_loader = train_loader
+    data_loader = val_loader
 
     for i, (images, target, index) in enumerate(data_loader):
         print(images.shape, target.shape, index.shape)

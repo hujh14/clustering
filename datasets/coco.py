@@ -73,7 +73,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
     def prepare_input(self, img, ann):
         image_path = os.path.join(self.root, img["file_name"])
         image = Image.open(image_path).convert('RGB')
-        mask = mask_utils.decode(ann["segmentation"])  # [h, w, n]
+        mask = convert_to_binary_mask(ann["segmentation"], image.size)
         bbox = ann["bbox"]
 
         image = np.array(image)
@@ -95,6 +95,21 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         img = self.coco.imgs[ann["image_id"]]
         cat = self.coco.cats[ann["category_id"]]
         return img, ann, cat
+
+def convert_to_binary_mask(segm, size):
+    width, height = size
+    if isinstance(segm, list):
+        rles = mask_utils.frPyObjects(segm, height, width)
+        rle = mask_utils.merge(rles)
+        mask = mask_utils.decode(rle)
+    elif isinstance(segm, dict):
+        mask = mask_utils.decode(segm)
+    else:
+        RuntimeError("Type of segm could not be interpreted:%s" % type(segm))
+
+    assert mask.shape[0] == height
+    assert mask.shape[1] == width
+    return mask
 
 def crop_bbox(image, bbox, margin=0.2):
     x, y, w, h = bbox
@@ -119,39 +134,3 @@ def crop_bbox(image, bbox, margin=0.2):
     pad_t = max(-y, 0)
     pad[pad_t:pad_t + crop.shape[0], pad_l:pad_l + crop.shape[1]] = crop
     return pad
-
-if __name__ == '__main__':
-    data_dir = "./data"
-    root = os.path.join(data_dir, "ade20k/images")
-    val_ann_file = os.path.join(data_dir, "ade20k/annotations/predictions_val.json")
-
-    dataset = COCODataset(
-        root, val_ann_file, 
-        transform=transforms.Compose([
-            transforms.Resize((256, 256)),
-            # transforms.RandomResizedCrop(224, scale=(0.5,1.)),
-            # transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-        ]))
-
-    print("Dataset size:", len(dataset))
-
-    for inp, target, idx in dataset:
-        print("Input shape:", inp.shape)
-        print("Target:", target)
-        print("Index:", idx)
-        print("Img info", dataset.get_img_info(idx))
-        
-        image = np.array(inp.numpy() * 255, dtype="uint8")
-        image = np.transpose(image, (1,2,0))
-
-        if image.shape[2] == 4:
-            # Visualize mask channel
-            image_c = np.array(image[:,:,:3], dtype="float")
-            iszero = np.nonzero(image[:,:,3] == 0)
-            image_c[iszero[0], iszero[1], :] *= 0.3
-            image = np.array(image_c, dtype="uint8")
-
-        image = Image.fromarray(image)
-        image.show()
-        input("Press Enter to continue...")
