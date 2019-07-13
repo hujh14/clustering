@@ -74,7 +74,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         image_path = os.path.join(self.root, img["file_name"])
         image = Image.open(image_path).convert('RGB')
         mask = self.coco.annToMask(ann)
-        bbox = mask_utils.toBbox(ann['segmentation'])
+        bbox = ann["bbox"]
 
         image = np.array(image)
         mask = mask * 255
