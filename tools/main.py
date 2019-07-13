@@ -4,6 +4,7 @@ import random
 import shutil
 import time
 import warnings
+import numpy as np
 import sys
 sys.path.insert(0, '.')
 
@@ -325,6 +326,11 @@ def validate(val_loader, model, criterion, args):
     # switch to evaluate mode
     model.eval()
 
+    # initialize embeddings
+    K = 512
+    ndata = len(val_loader.dataset)
+    embeddings = np.zeros((ndata, K))
+
     with torch.no_grad():
         end = time.time()
         for i, (images, target, index) in enumerate(val_loader):
@@ -339,6 +345,9 @@ def validate(val_loader, model, criterion, args):
             # save embedding
             print(embedding.shape)
             print(index.shape)
+            for idx, e in zip(index, embedding):
+                print(idx, e.shape)
+                embeddings[idx] = e
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -357,17 +366,21 @@ def validate(val_loader, model, criterion, args):
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
               .format(top1=top1, top5=top5))
 
+        # save embeddings
+        embeddings_fn = os.path.join(args.output_dir, "embeddings.npy")
+        np.savetxt(embeddings_fn, embeddings)
+
     return top1.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    if not os.path.exists(args.out_dir):
-        os.makedirs(args.out_dir)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
-    filename = os.path.join(args.out_dir, filename)
+    filename = os.path.join(args.output_dir, filename)
     torch.save(state, filename)
     if is_best:
-        best_filename = os.path.join(args.out_dir, "model_best.pth.tar")
+        best_filename = os.path.join(args.output_dir, "model_best.pth.tar")
         shutil.copyfile(filename, best_filename)
 
 
