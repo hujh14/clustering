@@ -73,8 +73,8 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
     def prepare_input(self, img, ann):
         image_path = os.path.join(self.root, img["file_name"])
         image = Image.open(image_path).convert('RGB')
-        mask = convert_to_binary_mask(ann["segmentation"], image.size)
-        bbox = ann["bbox"]
+        mask = self.coco.annToMask(ann)
+        bbox = mask_utils.toBbox(ann['segmentation'])
 
         image = np.array(image)
         mask = mask * 255
@@ -96,29 +96,14 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         cat = self.coco.cats[ann["category_id"]]
         return img, ann, cat
 
-def convert_to_binary_mask(segm, size):
-    width, height = size
-    if isinstance(segm, list):
-        rles = mask_utils.frPyObjects(segm, height, width)
-        rle = mask_utils.merge(rles)
-        mask = mask_utils.decode(rle)
-    elif isinstance(segm, dict):
-        mask = mask_utils.decode(segm)
-    else:
-        RuntimeError("Type of segm could not be interpreted:%s" % type(segm))
-
-    assert mask.shape[0] == height
-    assert mask.shape[1] == width
-    return mask
-
 def crop_bbox(image, bbox, margin=0.2):
     x, y, w, h = bbox
     # Add margin
     space = margin * (w + h) / 2
-    x = round(x - space)
-    y = round(y - space)
-    w = round(w + space * 2)
-    h = round(h + space * 2)
+    x = int(round(x - space))
+    y = int(round(y - space))
+    w = int(round(w + space * 2))
+    h = int(round(h + space * 2))
 
     x0 = min(max(0, x  ), image.shape[1])
     x1 = min(max(0, x+w), image.shape[1])
