@@ -77,7 +77,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'N processes per node, which has N GPUs. This is the '
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
-parser.add_argument('--output_dir', default='output', type=str,
+parser.add_argument('--output_dir', default='./output', type=str,
                     help='output directory')
 
 best_acc1 = 0
@@ -85,6 +85,10 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
+    print(args)
+
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -116,7 +120,6 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
-
 
 def main_worker(gpu, ngpus_per_node, args):
     global best_acc1
@@ -204,6 +207,10 @@ def main_worker(gpu, ngpus_per_node, args):
     train_ann_file = "coco/annotations/instances_train2017.json"
     val_img_dir = "coco/val2017"
     val_ann_file = "coco/annotations/instances_val2017.json"
+    train_img_dir = "ade20k/images"
+    train_ann_file = "ade20k/annotations/instances_train.json"
+    val_img_dir = "ade20k/images"
+    val_ann_file = "ade20k/annotations/instances_val.json"
 
     train_img_dir = os.path.join(args.data, train_img_dir)
     train_ann_file = os.path.join(args.data, train_ann_file)
@@ -217,7 +224,6 @@ def main_worker(gpu, ngpus_per_node, args):
     ])
     val_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
-        transforms.CenterCrop(224),
         transforms.ToTensor(),
     ])
 
@@ -343,11 +349,8 @@ def validate(val_loader, model, criterion, args):
             loss = criterion(output, target)
 
             # save embedding
-            print(embedding.shape)
-            print(index.shape)
             for idx, e in zip(index, embedding):
-                print(idx, e.shape)
-                embeddings[idx] = e
+                embeddings[idx] = e.cpu()
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -368,15 +371,12 @@ def validate(val_loader, model, criterion, args):
 
         # save embeddings
         embeddings_fn = os.path.join(args.output_dir, "embeddings.npy")
-        np.savetxt(embeddings_fn, embeddings)
+        np.save(embeddings_fn, embeddings)
 
     return top1.avg
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
-
     filename = os.path.join(args.output_dir, filename)
     torch.save(state, filename)
     if is_best:
