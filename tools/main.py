@@ -21,6 +21,7 @@ import torchvision.transforms as transforms
 
 import datasets
 import models
+from dataset_loader import load_datasets
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -201,34 +202,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    # traindir = os.path.join(args.data, 'train')
-    # valdir = os.path.join(args.data, 'val')
-    train_img_dir = "coco/train2017"
-    train_ann_file = "coco/annotations/instances_train2017.json"
-    val_img_dir = "coco/val2017"
-    val_ann_file = "coco/annotations/instances_val2017.json"
-    train_img_dir = "ade20k/images"
-    train_ann_file = "ade20k/annotations/instances_train.json"
-    val_img_dir = "ade20k/images"
-    val_ann_file = "ade20k/annotations/instances_val.json"
-
-    train_img_dir = os.path.join(args.data, train_img_dir)
-    train_ann_file = os.path.join(args.data, train_ann_file)
-    val_img_dir = os.path.join(args.data, val_img_dir)
-    val_ann_file = os.path.join(args.data, val_ann_file)
-
-    train_transforms = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-    ])
-    val_transforms = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-    ])
-
-    train_dataset = datasets.coco.COCODataset(train_img_dir, train_ann_file, transform=train_transforms)
-    val_dataset = datasets.coco.COCODataset(val_img_dir, val_ann_file, transform=val_transforms)
+    train_dataset, val_dataset = load_datasets("ade20k", args.data)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)

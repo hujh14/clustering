@@ -59,22 +59,17 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         self.transform = transform
 
     def __getitem__(self, idx):
-        ann_id = self.ids[idx]
-        ann = self.coco.anns[ann_id]
-        img = self.coco.imgs[ann["image_id"]]
-
-        input = self.prepare_input(img, ann)
-        target = self.prepare_target(ann)
-        return input, target, idx
+        inp = self.prepare_input(idx)
+        target = self.prepare_target(idx)
+        return inp, target, idx
 
     def __len__(self):
         return len(self.ids)
 
-    def prepare_input(self, img, ann):
-        image_path = os.path.join(self.root, img["file_name"])
-        image = Image.open(image_path).convert('RGB')
-        mask = self.coco.annToMask(ann)
-        bbox = ann["bbox"]
+    def prepare_input(self):
+        image = self.get_image(idx)
+        mask = self.get_mask(idx)
+        bbox = self.get_bbox(idx)
 
         image = np.array(image)
         mask = mask * 255
@@ -85,16 +80,43 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
             image = self.transform(image)
         return image
 
-    def prepare_target(self, ann):
+    def prepare_target(self, idx):
+        ann = self.get_ann_info(idx)
         target = self.json_category_id_to_contiguous_id[ann["category_id"]]
         return target
 
-    def get_info(self, idx):
+    def get_image(self, idx):
+        img = self.get_img_info(idx)
+        image_path = os.path.join(self.root, img["file_name"])
+        image = Image.open(image_path).convert('RGB')
+        return image
+
+    def get_mask(self, idx):
+        ann = self.get_ann_info(idx)
+        mask = self.coco.annToMask(ann)
+        return mask
+
+    def get_bbox(self, idx):
+        ann = self.get_ann_info(idx)
+        bbox = ann["bbox"]
+        return bbox
+
+    def get_img_info(self, idx):
         ann_id = self.ids[idx]
         ann = self.coco.anns[ann_id]
         img = self.coco.imgs[ann["image_id"]]
+        return img
+
+    def get_ann_info(self, idx):
+        ann_id = self.ids[idx]
+        ann = self.coco.anns[ann_id]
+        return ann
+
+    def get_cat_info(self, idx):
+        ann_id = self.ids[idx]
+        ann = self.coco.anns[ann_id]
         cat = self.coco.cats[ann["category_id"]]
-        return img, ann, cat
+        return cat
 
 def crop_bbox(image, bbox, margin=0.2):
     x, y, w, h = bbox
