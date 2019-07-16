@@ -28,15 +28,17 @@ def main():
     args.output_dir = os.path.join("output", args.dataset_name)
 
     img_dir = "data/coco/val2017"
-    ann_fn = os.path.join(args.output_dir, "prediction.json")
-    embeddings_fn = os.path.join(args.output_dir, "embeddings.npy")
+    ann_file = os.path.join(args.output_dir, "predictions.json")
+    embeddings_file = os.path.join(args.output_dir, "embeddings.npy")
 
     dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=None)
-    dataset.add_embeddings_file(embeddings_fn)
-    dataset.filter_by_scores(0.5)
+    dataset.add_embeddings_file(embeddings_file)
+    dataset.filter_by_score(0.5)
+    dataset.filter_by_cat_name("person")
     embeddings = dataset.get_embeddings()
 
     nns = cluster(embeddings)
+    np.random.shuffle(nns)
 
     # Visualize to html
     html_fn = os.path.join(args.output_dir, "nns.html")

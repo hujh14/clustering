@@ -71,14 +71,23 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         for ann_id in self.ids:
             ann = self.coco.anns[ann_id]
             if ann["score"] >= score:
-                ids.append(idx)
+                ids.append(ann_id)
         self.ids = ids
 
-    def add_embeddings_file(embeddings_fn):
-        self.embeddings = np.load(embeddings_fn)
-        assert len(embeddings) == len(self.coco.anns.keys())
+    def filter_by_cat_name(self, cat_name):
+        ids = []
+        for ann_id in self.ids:
+            ann = self.coco.anns[ann_id]
+            cat = self.coco.cats[ann["category_id"]]
+            if cat["name"] == cat_name:
+                ids.append(ann_id)
+        self.ids = ids
 
-    def get_embeddings():
+    def add_embeddings_file(self, embeddings_fn):
+        self.embeddings = np.load(embeddings_fn)
+        assert len(self.embeddings) == len(self.coco.anns.keys())
+
+    def get_embeddings(self):
         embeddings = []
         for ann_id in self.ids:
             embeddings.append(self.embeddings[ann_id-1])
