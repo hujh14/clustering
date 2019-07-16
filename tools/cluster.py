@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import numpy as np
 import sys
 sys.path.insert(0, '.')
@@ -12,8 +13,11 @@ from dataset_loader import load_datasets
 from dataset_visualizer import visualize_dataset
 
 def cluster(embeddings):
+    start = time.time()
+    print("Clustering embeddings", embeddings.shape)
     neigh = NearestNeighbors(algorithm='brute', metric='cosine').fit(embeddings)
     nns = neigh.kneighbors(embeddings, n_neighbors=10, return_distance=False)
+    print("Done.", time.time() - start)
     return nns
 
 def main():
@@ -23,18 +27,20 @@ def main():
     args = parser.parse_args()
     args.output_dir = os.path.join("output", args.dataset_name)
 
+    img_dir = "data/coco/val2017"
+    ann_fn = os.path.join(args.output_dir, "prediction.json")
     embeddings_fn = os.path.join(args.output_dir, "embeddings.npy")
-    embeddings = np.load(embeddings_fn)
 
-    nns_fn = os.path.join(args.output_dir, "nns.npy")
-    nns = cluster(val_dataset, embeddings)
-    np.save(nns_fn, nns)
-    # nns = np.load(pkl_fn)
+    dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=None)
+    dataset.add_embeddings_file(embeddings_fn)
+    dataset.filter_by_scores(0.5)
+    embeddings = dataset.get_embeddings()
+
+    nns = cluster(embeddings)
 
     # Visualize to html
     html_fn = os.path.join(args.output_dir, "nns.html")
-    train_dataset, val_dataset = load_datasets(args.dataset_name)
-    visualize_dataset(val_dataset, nns, html_fn)
+    visualize_dataset(dataset, nns, html_fn)
 
 
 if __name__ == '__main__':

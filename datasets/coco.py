@@ -66,6 +66,24 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
     def __len__(self):
         return len(self.ids)
 
+    def filter_by_score(self, score):
+        ids = []
+        for ann_id in self.ids:
+            ann = self.coco.anns[ann_id]
+            if ann["score"] >= score:
+                ids.append(idx)
+        self.ids = ids
+
+    def add_embeddings_file(embeddings_fn):
+        self.embeddings = np.load(embeddings_fn)
+        assert len(embeddings) == len(self.coco.anns.keys())
+
+    def get_embeddings():
+        embeddings = []
+        for ann_id in self.ids:
+            embeddings.append(self.embeddings[ann_id-1])
+        return np.array(embeddings)
+
     def prepare_input(self, idx):
         image = self.get_image(idx)
         mask = self.get_mask(idx)

@@ -30,22 +30,24 @@ DATASETS = {
         },
     }
 
+train_transforms = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+])
+
+val_transforms = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.ToTensor(),
+])
+
 def load_train_dataset(dataset_name):
-    train_transforms = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-    ])
     img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
     ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
-    train_dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=train_transforms)
-    return train_dataset
+    dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=train_transforms)
+    return dataset
 
 def load_val_dataset(dataset_name):
-    val_transforms = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-    ])
     img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
     ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
     val_dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=val_transforms)
