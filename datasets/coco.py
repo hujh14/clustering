@@ -66,7 +66,7 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
     def __len__(self):
         return len(self.ids)
 
-    def prepare_input(self):
+    def prepare_input(self, idx):
         image = self.get_image(idx)
         mask = self.get_mask(idx)
         bbox = self.get_bbox(idx)

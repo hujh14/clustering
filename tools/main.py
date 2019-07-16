@@ -202,7 +202,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dataset, val_dataset = load_datasets("ade20k", args.data)
+    train_dataset, val_dataset = load_datasets("ade20k")
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -307,7 +307,7 @@ def validate(val_loader, model, criterion, args):
     model.eval()
 
     # initialize embeddings
-    K = 512
+    K = 2048
     ndata = len(val_loader.dataset)
     embeddings = np.zeros((ndata, K))
 

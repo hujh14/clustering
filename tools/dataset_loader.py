@@ -10,57 +10,69 @@ import torchvision.transforms as transforms
 
 import datasets
 
-def load_train_dataset(img_dir, ann_file):
+DATA_DIR = "data"
+DATASETS = {
+        "coco_2017_train": {
+            "img_dir": "coco/train2017",
+            "ann_file": "coco/annotations/instances_train2017.json"
+        },
+        "coco_2017_val": {
+            "img_dir": "coco/val2017",
+            "ann_file": "coco/annotations/instances_val2017.json"
+        },
+        "ade20k_train": {
+            "img_dir": "ade20k/images",
+            "ann_file": "ade20k/annotations/instances_train.json"
+        },
+        "ade20k_val": {
+            "img_dir": "ade20k/images",
+            "ann_file": "ade20k/annotations/instances_val.json"
+        },
+    }
+
+def load_train_dataset(dataset_name):
     train_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
+    img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
+    ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
     train_dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=train_transforms)
     return train_dataset
 
-def load_val_dataset(img_dir, ann_file):
+def load_val_dataset(dataset_name):
     val_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
-        transforms.CenterCrop(224),
         transforms.ToTensor(),
     ])
+    img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
+    ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
     val_dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=val_transforms)
     return val_dataset
 
-def load_datasets(dataset_name, data_dir):
-    if dataset_name == "coco":
-        train_img_dir = "coco/train2017"
-        train_ann_file = "coco/annotations/instances_train2017.json"
-        val_img_dir = "coco/val2017"
-        val_ann_file = "coco/annotations/instances_val2017.json"
-    elif dataset_name == "ade20k":
-        train_img_dir = "ade20k/images"
-        train_ann_file = "ade20k/annotations/instances_train.json"
-        val_img_dir = "ade20k/images"
-        val_ann_file = "ade20k/annotations/instances_val.json"
+def load_datasets(dataset_name):
+    if "coco" in dataset_name:
+        train_dataset_name = "coco_2017_train"
+        val_dataset_name = "coco_2017_val"
+    elif "ade20k" in dataset_name:
+        train_dataset_name = "ade20k_train"
+        val_dataset_name = "ade20k_val"
     else:
-        raise Exception("Dataset name not recognized")
+        raise Exception("Dataset name not recognized: "+ dataset_name)
 
-    train_img_dir = os.path.join(data_dir, train_img_dir)
-    train_ann_file = os.path.join(data_dir, train_ann_file)
-    val_img_dir = os.path.join(data_dir, val_img_dir)
-    val_ann_file = os.path.join(data_dir, val_ann_file)
-
-    train_dataset = load_train_dataset(train_img_dir, train_ann_file)
-    val_dataset = load_train_dataset(val_img_dir, val_ann_file)
+    train_dataset = load_train_dataset(train_dataset_name)
+    val_dataset = load_train_dataset(val_dataset_name)
     return train_dataset, val_dataset
-
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     args = parser.parse_args()
-    args.data = "./data"
     args.workers = 1
     args.batch_size = 128
     
-    train_dataset, val_dataset = load_datasets("ade20k", args.data)
+    train_dataset, val_dataset = load_datasets("ade20k")
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
