@@ -4,6 +4,8 @@ from tqdm import tqdm
 import numpy as np
 from PIL import Image
 from PIL import ImageEnhance
+from PIL import ImageFilter
+from PIL import ImageChops
 import sys
 sys.path.insert(0, '.')
 
@@ -63,9 +65,13 @@ def visualize_dataset(dataset, idxs, html_fn):
             mask = dataset.get_mask(idx)
             mask = Image.fromarray(mask * 255)
 
+            erosion_mask = mask.filter(ImageFilter.MinFilter(3))
+            edges = ImageChops.difference(mask, erosion_mask)
+
             enhancer = ImageEnhance.Brightness(image)
-            image_vis = enhancer.enhance(0.2)
+            image_vis = enhancer.enhance(0.5)
             image_vis.paste(image, mask=mask)
+            image_vis.paste(edges, mask=edges)
 
             html_writer.add_image(image_vis)
         html_writer.line_break()
@@ -76,9 +82,9 @@ if __name__ == '__main__':
     args.data = "./data"
     args.output_dir = "output/ade20k/"
 
-    train_dataset, val_dataset = load_datasets("ade20k", args.data)
+    train_dataset, val_dataset = load_datasets("ade20k")
 
-    out_fn = os.path.join(args.output_dir, "test.html")
-    vis_dataset(val_dataset, [1,2,3,4], out_fn)
+    out_fn = os.path.join(args.output_dir, "test_vis.html")
+    visualize_dataset(val_dataset, [1,2,3,4], out_fn)
 
 
