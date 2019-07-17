@@ -2,7 +2,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter, ImageChops
 import os
 import random
 import numpy as np
@@ -58,13 +58,32 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
         self.transform = transform
 
+    def __len__(self):
+        return len(self.ids)
+
     def __getitem__(self, idx):
         inp = self.prepare_input(idx)
         target = self.prepare_target(idx)
         return inp, target, idx
 
-    def __len__(self):
-        return len(self.ids)
+    def prepare_input(self, idx):
+        image = self.get_image(idx)
+        mask = self.get_mask(idx)
+        bbox = self.get_bbox(idx)
+
+        image = np.array(image)
+        mask = mask * 255
+        image = crop_bbox(image, bbox, margin=0.2)
+        image = Image.fromarray(image)
+
+        if self.transform:
+            image = self.transform(image)
+        return image
+
+    def prepare_target(self, idx):
+        ann = self.get_ann_info(idx)
+        target = self.json_category_id_to_contiguous_id[ann["category_id"]]
+        return target
 
     def filter_by_score(self, score):
         ids = []
@@ -92,25 +111,6 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         for ann_id in self.ids:
             embeddings.append(self.embeddings[ann_id-1])
         return np.array(embeddings)
-
-    def prepare_input(self, idx):
-        image = self.get_image(idx)
-        mask = self.get_mask(idx)
-        bbox = self.get_bbox(idx)
-
-        image = np.array(image)
-        mask = mask * 255
-        image = crop_bbox(image, bbox, margin=0.2)
-        image = Image.fromarray(image)
-
-        if self.transform:
-            image = self.transform(image)
-        return image
-
-    def prepare_target(self, idx):
-        ann = self.get_ann_info(idx)
-        target = self.json_category_id_to_contiguous_id[ann["category_id"]]
-        return target
 
     def get_image(self, idx):
         img = self.get_img_info(idx)
@@ -144,6 +144,21 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         ann = self.coco.anns[ann_id]
         cat = self.coco.cats[ann["category_id"]]
         return cat
+
+    def visualize(self, idx):
+        image = self.get_image(idx)
+        mask = self.get_mask(idx)
+        mask = Image.fromarray(mask * 255)
+
+        erosion_mask = mask.filter(ImageFilter.MinFilter(3))
+        edges = ImageChops.difference(mask, erosion_mask)
+
+        enhancer = ImageEnhance.Brightness(image)
+        image_vis = enhancer.enhance(0.5)
+        image_vis.paste(image, mask=mask)
+        image_vis.paste(edges, mask=edges)
+        return image_vis
+        
 
 def crop_bbox(image, bbox, margin=0.2):
     x, y, w, h = bbox
