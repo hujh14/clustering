@@ -36,8 +36,13 @@ DATASETS = {
 
 
 def load_dataset(dataset_name, training=False):
-    img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
-    ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
+    img_dir = DATASETS[dataset_name]["img_dir"]
+    ann_file = DATASETS[dataset_name]["ann_file"]
+
+    if img_dir[0] != "/" and img_dir[0] != ".":
+        img_dir = os.path.join(DATA_DIR, img_dir)
+    if ann_file[0] != "/" and ann_file[0] != ".":
+        ann_file = os.path.join(DATA_DIR, ann_file)
 
     train_transforms = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -48,7 +53,7 @@ def load_dataset(dataset_name, training=False):
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
     ])
-    if train:
+    if training:
         return datasets.coco.COCODataset(img_dir, ann_file, transform=train_transforms)
     else: 
         return datasets.coco.COCODataset(img_dir, ann_file, transform=val_transforms)
@@ -59,7 +64,10 @@ if __name__ == '__main__':
     args.workers = 1
     args.batch_size = 128
     
-    train_dataset, val_dataset = load_datasets("ade20k")
+    train_dataset_name = "ade20k_train"
+    val_dataset_name = "ade20k_val"
+    train_dataset = load_dataset(train_dataset_name, training=True)
+    val_dataset = load_dataset(val_dataset_name, training=False)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
