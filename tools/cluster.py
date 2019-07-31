@@ -37,7 +37,9 @@ def cluster(X_train, X_test=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output_dir', default='./output', type=str,
+    parser.add_argument('-d', '--dataset_name', default='places', type=str,
+                        help='dataset name')
+    parser.add_argument('-o', '--output_dir', default='./output', type=str,
                         help='output directory')
     args = parser.parse_args()
 
