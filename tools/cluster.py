@@ -42,6 +42,7 @@ def main():
     parser.add_argument('-o', '--output_dir', default='./output', type=str,
                         help='output directory')
     args = parser.parse_args()
+    print(args)
 
     dataset = load_dataset_from_output_dir(args.dataset_name, args.output_dir)
 

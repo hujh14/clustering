@@ -5,7 +5,7 @@ import numpy as np
 import sys
 sys.path.insert(0, '.')
 
-from dataset_loader import load_datasets
+from dataset_loader import load_dataset
 
 class ImageHTMLWriter:
 
@@ -54,10 +54,11 @@ if __name__ == '__main__':
     html_fn = os.path.join(args.output_dir, "htmls/test_vis.html")
     html_writer = ImageHTMLWriter(html_fn)
 
-    train_dataset, val_dataset = load_datasets("ade20k")
+    dataset_name = "ade20k_val"
+    dataset = load_dataset(dataset_name, training=True)
     idxs = range(20)
     for idx in range(20):
-        image = val_dataset.visualize(idx)
+        image = dataset.visualize(idx)
         html_writer.add_image(image)
 
 
