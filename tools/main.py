@@ -202,7 +202,12 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dataset, val_dataset = load_datasets("ade20k")
+    train_dataset_name = "coco_2017_train"
+    val_dataset_name = "coco_2017_val"
+    # train_dataset_name = "ade20k_train"
+    # val_dataset_name = "ade20k_val"
+    train_dataset = load_dataset(train_dataset_name, training=True)
+    val_dataset = load_dataset(val_dataset_name, training=False)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)

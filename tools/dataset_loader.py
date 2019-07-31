@@ -28,45 +28,30 @@ DATASETS = {
             "img_dir": "ade20k/images",
             "ann_file": "ade20k/annotations/instances_val.json"
         },
+        "places": {
+            "img_dir": "/data/vision/torralba/ade20k-places/data",
+            "ann_file": ""
+        },
     }
 
-train_transforms = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-])
 
-val_transforms = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.ToTensor(),
-])
-
-def load_train_dataset(dataset_name):
+def load_dataset(dataset_name, training=False):
     img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
     ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
-    dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=train_transforms)
-    return dataset
 
-def load_val_dataset(dataset_name):
-    img_dir = os.path.join(DATA_DIR, DATASETS[dataset_name]["img_dir"])
-    ann_file = os.path.join(DATA_DIR, DATASETS[dataset_name]["ann_file"])
-    val_dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=val_transforms)
-    return val_dataset
-
-def load_datasets(dataset_name):
-    if "coco" in dataset_name:
-        train_dataset_name = "coco_2017_train"
-        val_dataset_name = "coco_2017_val"
-    elif "ade20k" in dataset_name:
-        train_dataset_name = "ade20k_train"
-        val_dataset_name = "ade20k_val"
-    else:
-        raise Exception("Dataset name not recognized: "+ dataset_name)
-
-    train_dataset = load_train_dataset(train_dataset_name)
-    val_dataset = load_train_dataset(val_dataset_name)
-    return train_dataset, val_dataset
-
+    train_transforms = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+    ])
+    val_transforms = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+    ])
+    if train:
+        return datasets.coco.COCODataset(img_dir, ann_file, transform=train_transforms)
+    else: 
+        return datasets.coco.COCODataset(img_dir, ann_file, transform=val_transforms)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

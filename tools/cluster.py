@@ -9,17 +9,15 @@ sys.path.insert(0, '.')
 import sklearn
 from sklearn.neighbors import NearestNeighbors
 
-import datasets
-from dataset_loader import load_datasets
+from dataset_loader import DATASETS, load_dataset
 from html_writer import ImageHTMLWriter
 
-def prepare_dataset(args):
-    img_dir = "data/ade20k/images"
-    # ann_file = "data/ade20k/annotations/instances_val.json"
-    ann_file = os.path.join(args.output_dir, "predictions.json")
-    emb_file = os.path.join(args.output_dir, "embeddings.npy")
 
-    dataset = datasets.coco.COCODataset(img_dir, ann_file, transform=None)
+def load_dataset_from_output_dir(dataset_name, output_dir):
+    DATASETS[dataset_name]["ann_file"] = os.path.join(output_dir, "predictions.json")
+    dataset = load_dataset(dataset_name)
+
+    emb_file = os.path.join(output_dir, "embeddings.npy")
     dataset.add_embeddings_file(emb_file)
     # dataset.filter_by_score(0.5)
     # dataset.filter_by_cat_name("person")
@@ -43,7 +41,7 @@ def main():
                         help='output directory')
     args = parser.parse_args()
 
-    dataset = prepare_dataset(args)
+    dataset = load_dataset_from_output_dir(args.dataset_name, args.output_dir)
 
     embeddings = dataset.get_embeddings()
     nns = cluster(embeddings)
