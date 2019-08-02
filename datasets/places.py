@@ -86,8 +86,8 @@ def build_coco(ann_dir):
     annotations = []
     categories = []
 
-    split_dirs = os.listdir(ann_dir)
-    for n, split_dir in enumerate(split_dirs):
+    split_dirs = sorted(os.listdir(ann_dir))
+    for n, split_dir in enumerate(split_dirs[:1]):
         ann_file = os.path.join(ann_dir, split_dir, "predictions.json")
         with open(ann_file) as f:
             data = json.load(f)

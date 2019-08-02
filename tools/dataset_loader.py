@@ -30,7 +30,7 @@ DATASETS = {
         },
         "places": {
             "img_dir": "/data/vision/torralba/ade20k-places/data",
-            "ann_file": ""
+            "ann_file": "/data/vision/oliva/scenedataset/scaleplaces/active_projects/maskrcnn_embedding/output/coco_places/inference"
         },
     }
 
