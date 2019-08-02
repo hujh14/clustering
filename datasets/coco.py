@@ -7,6 +7,7 @@ import os
 import random
 import numpy as np
 
+from pycocotools.coco import COCO
 import pycocotools.mask as mask_utils
 
 min_keypoints_per_image = 10
@@ -38,16 +39,19 @@ def has_valid_annotation(anno):
     return False
 
 
-class COCODataset(torchvision.datasets.coco.CocoDetection):
+class COCODataset(torch.utils.data.Dataset):
     """`MS Coco Detection <http://mscoco.org/dataset/#detections-challenge2016>`_ Dataset.
     Args:
         root (string): Root directory where images are downloaded to.
-        annFile (string): Path to json annotation file.
+        ann_file (string): Path to json annotation file.
         transforms (callable, optional): A function/transform that takes input sample and its target as entry
             and returns a transformed version.
     """
     def __init__(self, root, ann_file, transform=None):
-        super(COCODataset, self).__init__(root, ann_file)
+        self.coco = COCO(ann_file)
+        self.root = root
+        self.transform = transform
+
         self.ids = list(sorted(self.coco.anns.keys()))
         self.json_category_id_to_contiguous_id = {
             v: i + 1 for i, v in enumerate(self.coco.getCatIds())
@@ -55,8 +59,6 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
         self.contiguous_category_id_to_json_id = {
             v: k for k, v in self.json_category_id_to_contiguous_id.items()
         }
-
-        self.transform = transform
 
     def __len__(self):
         return len(self.ids)
